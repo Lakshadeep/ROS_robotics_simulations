@@ -27,7 +27,7 @@ int main(int argc, char** argv){
   ros::Publisher scan_pub = n.advertise<sensor_msgs::LaserScan>("scan", 50);
   ros::Subscriber sub1 = n.subscribe("map", 10, mapcallback);
 
-  unsigned int num_readings = 72;
+  unsigned int num_readings = 144 ;
   double laser_frequency = 40;
   double ranges[num_readings];
   double intensities[num_readings];
@@ -46,8 +46,8 @@ int main(int argc, char** argv){
     sensor_msgs::LaserScan scan;
     scan.header.stamp = scan_time;
     scan.header.frame_id = "odom";
-    scan.angle_min = -0.785;
-    scan.angle_max = 5.495;
+    scan.angle_min = 0.785;
+    scan.angle_max = 7.065;
     scan.angle_increment = 6.28 / num_readings;
     scan.time_increment = (1 / laser_frequency) / (num_readings);
     scan.range_min = 0.0;
@@ -60,39 +60,34 @@ int main(int argc, char** argv){
     float a = 100.0;
     for(unsigned int i = 0; i < num_readings; i++){
       int dist;
-      float x = 0,y = 431;
+      float x = 0,y = 0;
       th = (i * 6.28/ num_readings);
 
-      ROS_WARN("Theta %f", th * 180/3.14);
+      // ROS_WARN("Theta %f", th * 180/3.14);
 
       
-      while( 101 > map[abs(x)][abs(y)] || map[abs(x)][abs(y)] < 99){
+      while(1){
         // ROS_INFO("Map %d", map[abs(x)][abs(y)]);
         x = x + (0.01 * cos(th) - 0.01 * sin(th));
         y = y + (0.01 * sin(th) + 0.01 * cos(th));
         // ROS_INFO("Co-ordinates %d %d", abs(x),abs(y));
 
-        if(x >= 332 || x <= 0) break;
-        if(y >= 431 || y <= 0) break;
+        if(x > 332 || x <= 0) break;
+        if(y > 431 || y <= 0) break;
+
+        if(x < 332 && x > 0 && y < 441 && y > 0)
+        {
+          if(map[abs(y)][abs(x)] > 99){
+            // ROS_WARN("obstacles detected");
+            scan.ranges[i] = sqrt(pow(x - 0,2) + pow(y - 0,2))/100;
+            break;
+          }
+          else{
+            scan.ranges[i] = 2;
+          }
+        }
       }
 
-      if(map[abs(x)][abs(y)] == -1){
-        scan.ranges[i] = 10;
-      }else{ 
-        scan.ranges[i] = sqrt(pow(x,2) + pow(y - 431,2))/100;
-        ROS_INFO("Distance %f", scan.ranges[i]);
-        ROS_INFO("X = %f, Y = %f ",x,y);
-        ROS_INFO("Map %f", map[abs(x)][abs(y)]);
-        ROS_INFO(" ");
-      }
-      // else 
-        // scan.ranges[i] = 100/100;
-      // if(num_readings == 36) 
-      //   scan.ranges[i] = 1.5;
-      // else 
-      //   scan.ranges[i] = 100/100;
-    
-      // ROS_INFO("map %f", map[abs(x)][abs(y)]);
       scan.intensities[i] = 0;
     }
 
