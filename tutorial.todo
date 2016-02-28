@@ -1,0 +1,10 @@
+
+ ☐ ROS Map server
+   ☐ installation 
+     sudo apt-get install ros-indigo-map-server
+   ☐ usage 
+     rosrun map_server map_server mymap.yaml
+   ☐ view map 
+     rostopic echo /map
+   ☐ reference
+     http://wiki.ros.org/map_server
