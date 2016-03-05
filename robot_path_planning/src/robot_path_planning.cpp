@@ -179,7 +179,7 @@ void path_planner()
 
   while(target[0] != start[0] && target[1] != start[1])
   {
-    ROS_INFO("Delta %d %d",delta[actions[target[0]][target[1]]][0],delta[actions[target[0]][target[1]]][1]);
+    // ROS_INFO("Delta %d %d",delta[actions[target[0]][target[1]]][0],delta[actions[target[0]][target[1]]][1]);
     current[0] = target[0] - delta[actions[target[0]][target[1]]][0]; 
     current[1] = target[1] - delta[actions[target[0]][target[1]]][1];
     current[2] = 0;
@@ -192,7 +192,7 @@ void path_planner()
     current_f[1] = current[1]/100.0;
     current_f[2] = current[2];
 
-    ROS_WARN("Adding point to path x: %f y: %f", current_f[0], current_f[1]);
+    // ROS_WARN("Adding point to path x: %f y: %f", current_f[0], current_f[1]);
 
     std::vector<float> current_vect(current_f, current_f + sizeof(current_f) / sizeof(int) );
     path_pts.push_back(current_vect);
@@ -257,23 +257,21 @@ int main(int argc, char** argv){
 
     geometry_msgs::Pose pos;
 
-    ROS_INFO("Debug 1");
-
+    int j = 0;
     for(int i = path_pts.size() - 1; i >= 0; i--)
     {
       pos.position.x = path_pts[i][0];
       pos.position.y = path_pts[i][1];
       pos.position.z = 0;
       pos.orientation = odom_quat;
+      // ROS_INFO("Pt %d %f %f", j, path_pts[i][0], path_pts[i][1] );
 
       geometry_msgs::PoseStamped posestamp;
       posestamp.pose = pos;
 
-      path.poses[i] = posestamp;
+      path.poses[j] = posestamp;
+      j++;
     }
-
-    ROS_INFO("Debug 2");
-
 
     //publish the message
     odom_pub.publish(path);
