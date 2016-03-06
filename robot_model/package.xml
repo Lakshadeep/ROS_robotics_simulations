@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>robot_control</name>
+  <name>robot_model</name>
   <version>0.0.0</version>
-  <description>The robot_control package</description>
+  <description>The robot_model package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 
   <!-- Example:  -->
@@ -19,7 +19,7 @@
   <!-- Url tags are optional, but mutiple are allowed, one per tag -->
   <!-- Optional attribute type can be: website, bugtracker, or repository -->
   <!-- Example: -->
-  <!-- <url type="website">http://wiki.ros.org/robot_control</url> -->
+  <!-- <url type="website">http://wiki.ros.org/robot_model</url> -->
 
 
   <!-- Author tags are optional, mutiple are allowed, one per tag -->
