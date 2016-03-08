@@ -5,6 +5,7 @@
 #include <nav_msgs/Path.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <robot_model/motor_voltage.h>
+#include <robot_model/velocity.h>
 #include "nav_msgs/OccupancyGrid.h"
 #include "tf/transform_datatypes.h"
 
@@ -13,11 +14,17 @@ int path_pts_length;
 int is_path_received;
 double roll, pitch, yaw;
 double robot_pose_x , robot_pose_y, robot_yaw;
+double robot_velocity_linear_x, robot_velocity_linear_y, robot_velocity_angular_z;
+double radial_velocity;
 
 void posecallback(const nav_msgs::Odometry::ConstPtr& msg)
 {
   robot_pose_x = msg->pose.pose.position.x;
   robot_pose_y = msg->pose.pose.position.y;
+  robot_velocity_linear_x = msg->twist.twist.linear.x;
+  robot_velocity_linear_y = msg->twist.twist.linear.y;
+  robot_velocity_angular_z = msg->twist.twist.angular.z;
+
   tf::Quaternion quat(msg-> pose.pose.orientation.x, msg-> pose.pose.orientation.y, msg-> pose.pose.orientation.z, msg-> pose.pose.orientation.w);
 
   tf::Matrix3x3 m(quat);
@@ -66,6 +73,15 @@ int main(int argc, char** argv){
 
   double target_x, target_y;
 
+  //velocity motion model
+  double u;
+  double xcenter, ycenter;
+  double radius;
+  double delta_q;
+  double v_estm, w_estm, gamma_estm;
+  double dt = 0.1;
+
+
   ros::Time current_time, last_time;
   current_time = ros::Time::now();
   last_time = ros::Time::now();
@@ -92,36 +108,39 @@ int main(int argc, char** argv){
 
       ROS_INFO("Current target Point %d - (%f,%f)", i, target_x, target_y);
 
-      desired_heading = atan2(target_y - robot_pose_y, target_x - robot_pose_x) * 180/3.1457;
-      ROS_INFO("Desired heading %f", desired_heading);
 
-      desired_velocity = sqrt(pow(target_x - robot_pose_x, 2) + pow(target_y - robot_pose_y, 2));
-      ROS_INFO("Desired velocity  %f ", desired_velocity);
+      desired_heading = atan2(target_y - robot_pose_y, target_x - robot_pose_x);
+      ROS_INFO("Desired heading %f", desired_heading * 180/3.1457);
 
-      yaw = yaw * 180/3.1457;
+      u = 0.5 * ((robot_pose_x - target_x) *  cos(yaw) + (robot_pose_y - target_y) * sin(yaw)) / 
+          ((robot_pose_y - target_y) * cos(yaw) - (robot_pose_x - target_x) * sin(yaw));
 
-      if(desired_heading > yaw){
-        ROS_WARN("Desired heading  - yaw =  %f", desired_heading - yaw);
-        right_motor_voltage = ((desired_heading - yaw)/90) * 5;
-        left_motor_voltage = 0;
-      }
-      else if(yaw > desired_heading){
-        ROS_WARN("Yaw - desired heading =  %f", yaw - desired_heading);
-        left_motor_voltage = ((yaw - desired_heading)/90) * 5;
-        right_motor_voltage = 0;
-      }
+      xcenter = (target_x + robot_pose_x)/2 + u * (robot_pose_y - target_y); 
+      ycenter = (target_y + robot_pose_y)/2 + u * (target_x - robot_pose_x);
 
-      ros::ServiceClient motor_voltage_client;
-      robot_model::motor_voltage temp;
-      temp.request.left_motor = left_motor_voltage;
-      temp.request.right_motor = right_motor_voltage;
-      if (ros::service::call("set_motor_voltage", temp))
+      radius = sqrt(pow((robot_pose_x - xcenter), 2) + pow((robot_pose_y - ycenter), 2));
+
+      delta_q = atan2(target_y - ycenter, target_x - xcenter) - atan2(robot_pose_y - ycenter, robot_pose_x - xcenter);
+
+      v_estm = delta_q * radius / dt;
+      w_estm = delta_q / dt;
+      gamma_estm = ((desired_heading - yaw)/ dt) - w_estm;
+
+      radial_velocity = sqrt(pow(robot_velocity_linear_x,2) + sqrt(pow(robot_velocity_linear_y,2)));
+
+
+      ros::ServiceClient velocity_client;
+      robot_model::velocity temp;
+      temp.request.velocity_error = radial_velocity - v_estm;
+      temp.request.omega_error = robot_velocity_angular_z - w_estm;
+      temp.request.gamma_error = ((desired_heading - yaw)/ dt) - w_estm;
+      if (ros::service::call("set_velocity", temp))
       {
-        ROS_INFO("Setting desired motor voltages %f %f", left_motor_voltage, right_motor_voltage);     
+        ROS_INFO("Setting desired velocities %f %f %f", v_estm, w_estm,gamma_estm);     
       }
       else
       {
-        ROS_ERROR("Failed to set desired motor voltages");
+        ROS_ERROR("Failed to set desired velocities");
       }
 
     }

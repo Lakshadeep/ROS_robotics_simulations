@@ -2,8 +2,13 @@
 #include <tf/transform_broadcaster.h>
 #include <nav_msgs/Odometry.h>
 #include <robot_model/motor_voltage.h>
+#include <robot_model/velocity.h>
 
 double left_motor, right_motor;
+
+double v_err, w_err, gamma_err; 
+
+
 bool motor_voltage_callback(robot_model::motor_voltage::Request &req, robot_model::motor_voltage::Response &res)
 {
   left_motor = req.left_motor ;
@@ -12,11 +17,21 @@ bool motor_voltage_callback(robot_model::motor_voltage::Request &req, robot_mode
   return true;
 }
 
+bool velocity_callback(robot_model::velocity::Request &req, robot_model::velocity::Response &res)
+{
+  v_err = req.velocity_error ;
+  w_err = req.omega_error;
+  gamma_err = req.gamma_error;
+  ROS_INFO("Velocity err %f Omega err %f  Gamma err %f", v_err, w_err, gamma_err);
+  return true;
+}
+
 int main(int argc, char** argv){
   ros::init(argc, argv, "robot_model");
 
   ros::NodeHandle n;
-  ros::ServiceServer desired_heading_velocity = n.advertiseService("set_motor_voltage", motor_voltage_callback);
+  // ros::ServiceServer desired_heading_velocity = n.advertiseService("set_motor_voltage", motor_voltage_callback);
+  ros::ServiceServer desired_heading_velocity = n.advertiseService("set_velocity", velocity_callback);
   ros::Publisher odom_pub = n.advertise<nav_msgs::Odometry>("odom", 50);
   tf::TransformBroadcaster odom_broadcaster;
 
@@ -28,14 +43,28 @@ int main(int argc, char** argv){
   current_time = ros::Time::now();
   last_time = ros::Time::now();
 
-  double calculated_angle;
-  double calculated_velocity;
-  double diff_voltage;
+  double velocity;
+  double omega;
+  double gamma;
 
   ros::Rate r(10.0);
   while(n.ok()){
 
-    //compute odometry in a typical way given the velocities of the robot
+    ros::spinOnce(); 
+
+    current_time = ros::Time::now();
+    double dt = (current_time - last_time).toSec();
+
+    velocity = velocity + v_err;
+    omega = omega + w_err;
+    gamma = gamma + gamma_err;
+
+    x = x - ( velocity * sin(th) / omega) + (velocity / omega) * sin( th + (omega * dt));
+    y = y + ( velocity * cos(th) / omega) - (velocity / omega) * cos( th + (omega * dt));
+
+    th = th + (omega * dt) + (gamma * dt);
+
+/*    //compute odometry in a typical way given the velocities of the robot
     ROS_WARN("Theta (Yaw) %f", th * 180/3.1457);
     current_time = ros::Time::now();
     double dt = (current_time - last_time).toSec();
@@ -48,7 +77,7 @@ int main(int argc, char** argv){
     x += delta_x;
     y += delta_y;
 
-    ros::spinOnce();               // check for incoming messages
+//   ros::spinOnce();               // check for incoming messages
     
     if(left_motor > right_motor)
     {
@@ -92,7 +121,7 @@ int main(int argc, char** argv){
     else{
       calculated_angle = 0;         // for both equal case
       calculated_velocity = 0;
-    }
+    }*/
 
     //since all odometry is 6DOF we'll need a quaternion created from yaw
     geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(th);
@@ -126,9 +155,9 @@ int main(int argc, char** argv){
 
     //set the velocity
     odom.child_frame_id = "base_link";
-    odom.twist.twist.linear.x = calculated_velocity * cos(th);
-    odom.twist.twist.linear.y = calculated_velocity * sin(th) ;
-    odom.twist.twist.angular.z = 0;
+    odom.twist.twist.linear.x = velocity * cos(th);
+    odom.twist.twist.linear.y = velocity * sin(th) ;
+    odom.twist.twist.angular.z = omega;
 
     //publish the message
     odom_pub.publish(odom);
