@@ -22,7 +22,7 @@ bool velocity_callback(robot_model::velocity::Request &req, robot_model::velocit
   v_err = req.velocity_error ;
   w_err = req.omega_error;
   gamma_err = req.gamma_error;
-  ROS_INFO("Velocity err %f Omega err %f  Gamma err %f", v_err, w_err, gamma_err);
+  ROS_INFO("Velocity err %f Omega err %f  Gamma  %f", v_err, w_err, gamma_err);
   return true;
 }
 
@@ -55,73 +55,20 @@ int main(int argc, char** argv){
     current_time = ros::Time::now();
     double dt = (current_time - last_time).toSec();
 
-    velocity = velocity + v_err;
-    omega = omega + w_err;
-    gamma = gamma + gamma_err;
+    velocity = velocity - v_err/100.0;
+    omega = omega - w_err;
+    gamma = gamma_err;
 
-    x = x - ( velocity * sin(th) / omega) + (velocity / omega) * sin( th + (omega * dt));
-    y = y + ( velocity * cos(th) / omega) - (velocity / omega) * cos( th + (omega * dt));
+    if(velocity > 0.01){
+      velocity  = 0.01;
+    }
+
+    //signs have been reversed here
+    x = x + ( velocity * sin(th) / omega) - (velocity / omega) * sin( th + (omega * dt));
+    y = y - ( velocity * cos(th) / omega) + (velocity / omega) * cos( th + (omega * dt));
 
     th = th + (omega * dt) + (gamma * dt);
 
-/*    //compute odometry in a typical way given the velocities of the robot
-    ROS_WARN("Theta (Yaw) %f", th * 180/3.1457);
-    current_time = ros::Time::now();
-    double dt = (current_time - last_time).toSec();
-    // double delta_x = (calculated_velocity * cos(th) - calculated_velocity * sin(th)) * dt;
-    double delta_x = (calculated_velocity * cos(th)) * dt;
-    
-    // double delta_y = (calculated_velocity * sin(th) + calculated_velocity * cos(th)) * dt;
-    double delta_y = (calculated_velocity * sin(th)) * dt;
-
-    x += delta_x;
-    y += delta_y;
-
-//   ros::spinOnce();               // check for incoming messages
-    
-    if(left_motor > right_motor)
-    {
-      diff_voltage = left_motor - right_motor;
-      calculated_angle = (diff_voltage / 5) * 90;
-      calculated_velocity = 0.01;
-
-      if(calculated_angle > 18)
-      {
-        th = fmod((((th * 180/3.1457) - 18.0) + 360),360);
-        th = (th * 3.1457/180);
-      }
-      else
-      {
-        th = fmod((((th * 180/3.1457) + calculated_angle) + 360),360);
-        th = (th * 3.1457/180);
-      }
-    }
-    else if(right_motor > left_motor)
-    {
-      diff_voltage = left_motor - right_motor;
-      calculated_angle = (diff_voltage / 5) * 90;
-      calculated_velocity = 0.01;
-
-      if(calculated_angle < -18)
-      {
-        th = fmod((((th * 180/3.1457) + 18.0) + 360),360);
-        th = (th * 3.1457/180);
-      }
-      else
-      {
-        th = fmod((((th * 180/3.1457) + calculated_angle) + 360),360);
-        th = (th * 3.1457/180);
-      }
-    }
-    else if(right_motor != 0 && left_motor != 0) 
-    {
-      calculated_angle = 0;         // for both equal case
-      calculated_velocity = 1.0/100.0;
-    }
-    else{
-      calculated_angle = 0;         // for both equal case
-      calculated_velocity = 0;
-    }*/
 
     //since all odometry is 6DOF we'll need a quaternion created from yaw
     geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(th);

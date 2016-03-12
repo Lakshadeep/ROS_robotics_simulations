@@ -17,7 +17,7 @@ int closed[332][441];
 static std::vector< std::vector<int> > open(0);
 
 int start[] = {10,10,0};
-int goal[] = {300,300,0};
+int goal[] = {200,100,0};
 
 int delta[4][2] = { {-1, 0}, {0, -1}, {1, 0}, {0, 1}};
 int map_ready = 0;
