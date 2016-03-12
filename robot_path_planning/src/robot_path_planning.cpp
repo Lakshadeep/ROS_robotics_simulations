@@ -17,7 +17,7 @@ int closed[332][441];
 static std::vector< std::vector<int> > open(0);
 
 int start[] = {10,10,0};
-int goal[] = {200,100,0};
+int goal[] = {300,300,0};
 
 int delta[4][2] = { {-1, 0}, {0, -1}, {1, 0}, {0, 1}};
 int map_ready = 0;
@@ -243,40 +243,72 @@ int main(int argc, char** argv){
       }
     }
     if(map_ready == 1)
-      path_planner();
-    current_time = ros::Time::now();
-
-    //since all odometry is 441DOF we'll need a quaternion created from yaw
-    geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(th);
-
-    nav_msgs::Path path;
-    path.header.stamp = current_time;
-    path.header.frame_id = "odom";
-
-    path.poses.resize(path_pts.size());
-
-    geometry_msgs::Pose pos;
-
-    int j = 0;
-    for(int i = path_pts.size() - 1; i >= 0; i--)
     {
-      pos.position.x = path_pts[i][0];
-      pos.position.y = path_pts[i][1];
-      pos.position.z = 0;
-      pos.orientation = odom_quat;
-      // ROS_INFO("Pt %d %f %f", j, path_pts[i][0], path_pts[i][1] );
+      path_planner();
+    
+      current_time = ros::Time::now();
 
-      geometry_msgs::PoseStamped posestamp;
-      posestamp.pose = pos;
+      //since all odometry is 441DOF we'll need a quaternion created from yaw
+      geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(th);
 
-      path.poses[j] = posestamp;
-      j++;
+      nav_msgs::Path path, smoothed_path;
+      path.header.stamp = current_time;
+      path.header.frame_id = "odom";
+      smoothed_path.header.stamp = current_time;
+      smoothed_path.header.frame_id = "odom";
+
+      path.poses.resize(path_pts.size());
+      smoothed_path.poses.resize(path_pts.size());
+
+      geometry_msgs::Pose pos;
+
+      int j = 0;
+      for(int i = path_pts.size() - 1; i >= 0; i--)
+      {
+        pos.position.x = path_pts[i][0];
+        pos.position.y = path_pts[i][1];
+        pos.position.z = 0;
+        pos.orientation = odom_quat;
+        // ROS_INFO("Pt %d %f %f", j, path_pts[i][0], path_pts[i][1] );
+
+        geometry_msgs::PoseStamped posestamp;
+        posestamp.pose = pos;
+
+        path.poses[j] = posestamp;
+        smoothed_path.poses[j] = posestamp;
+        j++;
+      }
+
+      //smoothening the path
+      float weight_data = 0.5, weight_smooth = 0.4, tolerence = 0.001, change, aux[2];
+
+      change  = tolerence;
+
+      while(change >= tolerence)
+      {
+        change = 0.0;
+
+        for(int i = 1; i < path_pts.size() - 2 ; i++)
+        {
+          aux[0] = smoothed_path.poses[i].pose.position.x;
+          aux[1] = smoothed_path.poses[i].pose.position.y;
+
+          smoothed_path.poses[i].pose.position.x += weight_data * (smoothed_path.poses[i].pose.position.x - path.poses[i].pose.position.x);
+          smoothed_path.poses[i].pose.position.x += weight_smooth * (smoothed_path.poses[i-1].pose.position.x + smoothed_path.poses[i+1].pose.position.x - (2.0 * smoothed_path.poses[i].pose.position.x));
+          change += abs(aux[0] - smoothed_path.poses[i].pose.position.x);
+
+          smoothed_path.poses[i].pose.position.y += weight_data * (smoothed_path.poses[i].pose.position.y - path.poses[i].pose.position.y);
+          smoothed_path.poses[i].pose.position.y += weight_smooth * (smoothed_path.poses[i-1].pose.position.y + smoothed_path.poses[i+1].pose.position.y - (2.0 * smoothed_path.poses[i].pose.position.y));
+          change += abs(aux[1] - smoothed_path.poses[i].pose.position.y);
+        }
+      }
+
+
+      //publish the message
+      odom_pub.publish(smoothed_path);
+
+      ROS_INFO("Path published");
     }
-
-    //publish the message
-    odom_pub.publish(path);
-
-    ROS_INFO("Path published");
 
     last_time = current_time;
     r.sleep();
