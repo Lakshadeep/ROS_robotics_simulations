@@ -8,6 +8,13 @@ double left_motor, right_motor;
 
 double v_err, w_err, gamma_err; 
 
+float alpha1 = 0.001;
+float alpha2 = 0.001;
+float alpha3 = 0.001;
+float alpha4 = 0.001;
+float alpha5 = 0.001;
+float alpha6 = 0.001;
+
 
 bool motor_voltage_callback(robot_model::motor_voltage::Request &req, robot_model::motor_voltage::Response &res)
 {
@@ -24,6 +31,22 @@ bool velocity_callback(robot_model::velocity::Request &req, robot_model::velocit
   gamma_err = req.gamma_error;
   ROS_INFO("Velocity err %f Omega err %f  Gamma  %f", v_err, w_err, gamma_err);
   return true;
+}
+
+double randInRange(double min, double max)
+{
+  return min + (double) (rand() / (double) (RAND_MAX) * (max - min + 1));
+}
+
+
+double gaussion_sampling(double deviation)
+{
+  double sum = 0.0;
+  for(int i = 1; i <= 12; i++ )
+  {
+     sum =+ (deviation / 6) * randInRange(-1.0, 1.0);
+  }
+  return sum;
 }
 
 int main(int argc, char** argv){
@@ -58,6 +81,12 @@ int main(int argc, char** argv){
     velocity = velocity - v_err/100.0;
     omega = omega - w_err;
     gamma = gamma_err;
+
+    //modelling noise
+    velocity = velocity + gaussion_sampling(alpha1 * velocity + alpha2 * omega);
+    omega = omega + gaussion_sampling(alpha3 * velocity + alpha4 * omega);
+    gamma = gamma + gaussion_sampling(alpha5 * velocity + alpha6 * omega);
+
 
     if(velocity > 0.01){
       velocity  = 0.01;

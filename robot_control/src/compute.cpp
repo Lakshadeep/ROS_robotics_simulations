@@ -17,6 +17,13 @@ double robot_pose_x , robot_pose_y, robot_yaw;
 double robot_velocity_linear_x, robot_velocity_linear_y, robot_velocity_angular_z;
 double radial_velocity;
 
+float alpha1 = 0.1;
+float alpha2 = 0.1;
+float alpha3 = 0.1;
+float alpha4 = 0.1;
+float alpha5 = 0.1;
+float alpha6 = 0.1;
+
 void posecallback(const nav_msgs::Odometry::ConstPtr& msg)
 {
   robot_pose_x = msg->pose.pose.position.x;
@@ -50,6 +57,23 @@ void pathcallback (const nav_msgs::Path::ConstPtr& path)
   path_pts_length = path->poses.size();
   is_path_received = 1;
   ROS_INFO("Received path from planner");
+}
+
+double gaussion_probability(double value, double deviation)
+{
+  double temp5 = 0.0;
+  if(deviation < 0.0001){
+    ROS_WARN("inside deviation");
+    deviation = 0.0001;
+  }
+  ROS_INFO("Value %f deviation %f", value, deviation);
+  double temp1 = 1.0 / (sqrt(2 * 3.1457 * deviation));
+  double temp3 = -0.5 * value * value / deviation;
+  double temp2 = exp(temp3);
+  ROS_INFO("temp1 %f temp2 %f temp3 %f", temp1, temp2, temp3);
+
+  ROS_INFO("value %f", temp1 * temp2);
+  return temp1 * temp2;
 }
 
 
@@ -144,12 +168,18 @@ int main(int argc, char** argv){
       // ROS_WARN("radial velocity %f ", radial_velocity);
       ros::ServiceClient velocity_client;
       robot_model::velocity temp;
+
       temp.request.velocity_error = radial_velocity - v_estm;
       temp.request.omega_error = robot_velocity_angular_z - w_estm;
-      temp.request.gamma_error = gamma_estm;
+      temp.request.gamma_error = gamma_estm; 
+
       if (ros::service::call("set_velocity", temp))
       {
-        ROS_INFO("Setting desired velocities %f %f %f", v_estm, w_estm,gamma_estm);     
+        double prob_v , prob_w, prob_g;
+        prob_v = gaussion_probability(radial_velocity - v_estm, alpha1 * radial_velocity + alpha2 * robot_velocity_angular_z);
+        prob_w = gaussion_probability(robot_velocity_angular_z - w_estm, alpha3 * radial_velocity + alpha4 * robot_velocity_angular_z);
+        prob_g = gaussion_probability(gamma_estm, alpha5 * radial_velocity + alpha6 * robot_velocity_angular_z);
+        ROS_INFO("Gaussion probabilities v:%f w:%f g:%f", prob_v, prob_w, prob_g);     
       }
       else
       {

@@ -17,7 +17,7 @@ int closed[332][441];
 static std::vector< std::vector<int> > open(0);
 
 int start[] = {10,10,0};
-int goal[] = {300,300,0};
+int goal[] = {100,50,0};
 
 int delta[4][2] = { {-1, 0}, {0, -1}, {1, 0}, {0, 1}};
 int map_ready = 0;
@@ -118,6 +118,7 @@ void path_planner()
         if(step == 10000000){
           break;
         }
+
         for (int i = 0; i < 4; i++)
         {
           int temp[3];
@@ -280,7 +281,7 @@ int main(int argc, char** argv){
       }
 
       //smoothening the path
-      float weight_data = 0.5, weight_smooth = 0.4, tolerence = 0.001, change, aux[2];
+      float weight_data = 0.5, weight_smooth = 0.8, tolerence = 0.01, change, aux[2];
 
       change  = tolerence;
 
